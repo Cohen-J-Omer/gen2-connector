@@ -378,6 +378,7 @@ class IBMVPCNodeProvider(NodeProvider):
             node = self._get_cached_node(node_id)
             fip = node.get("floating_ips")
             if fip:
+                logger.debug(f"""returning external ip: {fip[0]["address"]} for node: {node['name']}, id: {node_id}""")
                 return fip[0]["address"]
 
     def internal_ip(self, node_id)-> str:
@@ -391,7 +392,7 @@ class IBMVPCNodeProvider(NodeProvider):
         except Exception:
             node = self._get_node(node_id)
 
-        logger.debug(f"in internal_ip, returning ip for node: {node['name']}, id: {node_id}")
+        logger.debug(f"""returning internal ip: {node["network_interfaces"][0].get("primary_ip")['address']} for node: {node['name']}, id: {node_id}""")
 
         return node["network_interfaces"][0].get("primary_ip")['address']
 
@@ -617,6 +618,7 @@ class IBMVPCNodeProvider(NodeProvider):
 
         return {instance["id"]: instance}
 
+    @log_in_out
     def create_node(self, base_config, tags, count) -> None:
         """
         returns dict of {instance_id:instance_data} of nodes. creates 'count' number of nodes.
@@ -732,7 +734,8 @@ class IBMVPCNodeProvider(NodeProvider):
 
         for future in cf.as_completed(futures):
             future.result()
-
+            
+    @log_in_out
     def terminate_node(self, node_id)-> Optional[Dict[str, Any]]:
         """Deletes the VM instance and the associated volume. 
         if cache_stopped_nodes==true in the cluster config file, nodes are stopped instead. """
