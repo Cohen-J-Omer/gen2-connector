@@ -23,7 +23,7 @@ import socket
 import threading
 import time
 import os
-import shutil
+from pprint import pprint
 from pathlib import Path
 from uuid import uuid4
 
@@ -90,15 +90,15 @@ class IBMVPCNodeProvider(NodeProvider):
         def decorated_func(*args, **kwargs):
             name = func.__name__
             logger.debug(
-                f"Enter {name} from {inspect.stack()[0][3]} "
+                f"\n\nEnter {name} from {inspect.stack()[0][3]} "
                 f"{inspect.stack()[1][3]} {inspect.stack()[2][3]} with args: "
-                f"{args} and kwargs {kwargs}"
+                f"entered with args:\n{pprint(args)} and kwargs {pprint(kwargs)}"
             )
             try:
                 result = func(*args, **kwargs)
                 logger.debug(
                     f"Leave {name} from {inspect.stack()[1][3]} with result "
-                    f"{result}, entered with args: {args}"
+                    f"Func Result:{pprint(result)}\n\n"
                 )
             except Exception:
                 cli_logger.error(f"Error in {name}")
