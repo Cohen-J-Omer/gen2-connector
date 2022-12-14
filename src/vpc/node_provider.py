@@ -331,6 +331,7 @@ class IBMVPCNodeProvider(NodeProvider):
         """returns whether a node is in status running"""
         with self.lock:
             node = self._get_cached_node(node_id)
+            logger.debug(f"""node: {node_id} is_running? {node["status"] == "running"}""")
             return node["status"] == "running"
 
     
@@ -339,8 +340,10 @@ class IBMVPCNodeProvider(NodeProvider):
         with self.lock:
             try:
                 node = self._get_cached_node(node_id)
+                logger.debug(f"""node: {node_id} is_terminated? {node["status"] not in ["running", "starting", "pending"]}""")
                 return node["status"] not in ["running", "starting", "pending"]
             except Exception:
+                logger.debug(f"""node: {node_id} is_terminated? TRUE""")
                 return True
 
     
@@ -378,7 +381,7 @@ class IBMVPCNodeProvider(NodeProvider):
             node = self._get_cached_node(node_id)
             fip = node.get("floating_ips")
             if fip:
-                logger.debug(f"""returning external ip: {fip[0]["address"]} for node: {node['name']}, id: {node_id}""")
+                #logger.debug(f"""returning external ip: {fip[0]["address"]} for node: {node['name']}, id: {node_id}""")
                 return fip[0]["address"]
 
     def internal_ip(self, node_id)-> str:
@@ -392,7 +395,7 @@ class IBMVPCNodeProvider(NodeProvider):
         except Exception:
             node = self._get_node(node_id)
 
-        logger.debug(f"""returning internal ip: {node["network_interfaces"][0].get("primary_ip")['address']} for node: {node['name']}, id: {node_id}""")
+        # logger.debug(f"""returning internal ip: {node["network_interfaces"][0].get("primary_ip")['address']} for node: {node['name']}, id: {node_id}""")
 
         return node["network_interfaces"][0].get("primary_ip")['address']
 
@@ -618,7 +621,7 @@ class IBMVPCNodeProvider(NodeProvider):
 
         return {instance["id"]: instance}
 
-    @log_in_out
+    # @log_in_out
     def create_node(self, base_config, tags, count) -> None:
         """
         returns dict of {instance_id:instance_data} of nodes. creates 'count' number of nodes.
@@ -631,7 +634,7 @@ class IBMVPCNodeProvider(NodeProvider):
             count(int): number of nodes to create. 
 
         """
-
+        logger.debug(f"""create_node: count: {count}\ntags: {pprint(tags)}\nbase_config:{pprint(base_config)}\n """)
         stopped_nodes_dict = {}
         futures = []
 
