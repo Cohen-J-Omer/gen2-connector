@@ -178,7 +178,10 @@ class IBMVPCNodeProvider(NodeProvider):
 
         self.lock = threading.RLock()
         self.endpoint = self.provider_config["endpoint"]
-        self.iam_api_key = self.provider_config["iam_api_key"]
+        self.iam_api_key = self.provider_config.get("iam_api_key",None)
+        if not self.iam_api_key:
+            logger.critical("Missing IAM-API key")
+            raise Exception("Missing IAM-API key")
         self.iam_endpoint = self.provider_config.get("iam_endpoint")
 
         self.ibm_vpc_client = _get_vpc_client(
