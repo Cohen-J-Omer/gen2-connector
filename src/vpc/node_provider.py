@@ -113,57 +113,57 @@ class IBMVPCNodeProvider(NodeProvider):
         self.nodes_tags = {}
 
         self.tags_file = Path.home() / VPC_TAGS
+        if self._get_node_type(socket.gethostname()) == NODE_KIND_HEAD:
+            # local tags cache exists from former runs 
+            if self.tags_file.is_file():
+                all_tags = json.loads(self.tags_file.read_text())
+                tags = all_tags.get(self.cluster_name, {})
 
-        # local tags cache exists from former runs 
-        if self.tags_file.is_file():
-            all_tags = json.loads(self.tags_file.read_text())
-            tags = all_tags.get(self.cluster_name, {})
+                # filters instances that were deleted since the last time the head node was up
+                for instance_id, instance_tags in tags.items():
+                    try: 
+                        self.ibm_vpc_client.get_instance(instance_id)
+                        self.nodes_tags[instance_id] = instance_tags
+                    except Exception as e:
+                        cli_logger.warning(instance_id)
+                        if e.message == "Instance not found":
+                            logger.error(
+                                f"cached instance {instance_id} not found, \
+                                    will be removed from cache"
+                            )
+                self.set_node_tags(None, None)  # dump in-memory cache to local cache (file). 
+    
+            else:
+                name = socket.gethostname() # returns the instance's (VSI) name 
+                logger.debug(f"Check if {name} is HEAD")
 
-            # filters instances that were deleted since the last time the head node was up
-            for instance_id, instance_tags in tags.items():
-                try: 
-                    self.ibm_vpc_client.get_instance(instance_id)
-                    self.nodes_tags[instance_id] = instance_tags
-                except Exception as e:
-                    cli_logger.warning(instance_id)
-                    if e.message == "Instance not found":
-                        logger.error(
-                            f"cached instance {instance_id} not found, \
-                                will be removed from cache"
+                if self._get_node_type(name) == NODE_KIND_HEAD: 
+                    logger.debug(f"{name} is HEAD")
+                    node = self.ibm_vpc_client.list_instances(name=name).get_result()[
+                        "instances"
+                    ]
+                    if node:
+                        logger.debug(f"{name} is node in vpc")
+
+                        ray_bootstrap_config = Path.home() / "ray_bootstrap_config.yaml"  # reads the cluster's config file (an initialized defaults.yaml)
+                        logger.info(f"cluster config file loaded from: {ray_bootstrap_config}")
+                        config = json.loads(ray_bootstrap_config.read_text())
+                        (runtime_hash, mounts_contents_hash) = hash_runtime_conf(
+                            config["file_mounts"], None, config
                         )
-            self.set_node_tags(None, None)  # dump in-memory cache to local cache (file). 
- 
-        else:
-            name = socket.gethostname() # returns the instance's (VSI) name 
-            logger.debug(f"Check if {name} is HEAD")
 
-            if self._get_node_type(name) == NODE_KIND_HEAD: 
-                logger.debug(f"{name} is HEAD")
-                node = self.ibm_vpc_client.list_instances(name=name).get_result()[
-                    "instances"
-                ]
-                if node:
-                    logger.debug(f"{name} is node in vpc")
+                        head_tags = {
+                            TAG_RAY_NODE_KIND: NODE_KIND_HEAD,
+                            "ray-node-name": name,
+                            "ray-node-status": "up-to-date",
+                            "ray-cluster-name": self.cluster_name,
+                            "ray-user-node-type": config["head_node_type"],
+                            "ray-runtime-config": runtime_hash,
+                            "ray-file-mounts-contents": mounts_contents_hash,
+                        }
 
-                    ray_bootstrap_config = Path.home() / "ray_bootstrap_config.yaml"  # reads the cluster's config file (an initialized defaults.yaml)
-                    logger.info(f"cluster config file loaded from: {ray_bootstrap_config}")
-                    config = json.loads(ray_bootstrap_config.read_text())
-                    (runtime_hash, mounts_contents_hash) = hash_runtime_conf(
-                        config["file_mounts"], None, config
-                    )
-
-                    head_tags = {
-                        TAG_RAY_NODE_KIND: NODE_KIND_HEAD,
-                        "ray-node-name": name,
-                        "ray-node-status": "up-to-date",
-                        "ray-cluster-name": self.cluster_name,
-                        "ray-user-node-type": config["head_node_type"],
-                        "ray-runtime-config": runtime_hash,
-                        "ray-file-mounts-contents": mounts_contents_hash,
-                    }
-
-                    logger.debug(f"Setting HEAD node tags {head_tags}")
-                    self.set_node_tags(node[0]["id"], head_tags)
+                        logger.debug(f"Setting HEAD node tags {head_tags}")
+                        self.set_node_tags(node[0]["id"], head_tags)
 
     def __init__(self, provider_config, cluster_name):
         """
