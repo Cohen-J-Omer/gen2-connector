@@ -146,6 +146,7 @@ class IBMVPCNodeProvider(NodeProvider):
                     logger.debug(f"{name} is node in vpc")
 
                     ray_bootstrap_config = Path.home() / "ray_bootstrap_config.yaml"  # reads the cluster's config file (an initialized defaults.yaml)
+                    logger.info(f"cluster config file loaded from: {ray_bootstrap_config}")
                     config = json.loads(ray_bootstrap_config.read_text())
                     (runtime_hash, mounts_contents_hash) = hash_runtime_conf(
                         config["file_mounts"], None, config
@@ -180,7 +181,7 @@ class IBMVPCNodeProvider(NodeProvider):
         self.endpoint = self.provider_config["endpoint"]
         self.iam_api_key = self.provider_config.get("iam_api_key",None)
         if not self.iam_api_key:
-            logger.critical("Missing IAM-API key")
+            logger.critical(f"Missing IAM-API key. path-home: {Path.home()}")
             raise Exception("Missing IAM-API key")
         self.iam_endpoint = self.provider_config.get("iam_endpoint")
 
